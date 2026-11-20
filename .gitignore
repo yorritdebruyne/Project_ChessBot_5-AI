@@ -198,3 +198,7 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 aichess.bat
+
+# md files
+results/*.pgn
+Instructions_Project.*

@@ -19,8 +19,7 @@ when they are not relevant anymore.
 
 """
 
-# TODO: Rewrite to negamax (one function instead of a max- and a min-branch)
-#       Negamax needs the utility from the side to move: score * (1 if WHITE else -1)
+# TODO: Re-run the symmetry test after every change to the search
 # TODO: Add mate score constant (e.g. MATE = 100000) and return -MATE + ply when checkmated,
 #       so the agent prefers the fastest mate
 # TODO: Return 0 for draws (stalemate, insufficient material, repetition, 50-move rule)
@@ -31,13 +30,12 @@ class MinimaxAgent(Agent):
     # TODO: Give the agent an own name
     name = "5AIChessAgent"
 
-    author = "Sander&Yorrit18"
+    author = "Group5"
 
     def __init__(self, utility : Utility, time_limit_move : float, depth):
         super().__init__(utility, time_limit_move)
         # Save in class
         self.depth = depth
-        # TODO: Add node counter (self.nodes) to measure the effect of each technique for the report
         # TODO: Add transposition table (dict: zobrist hash -> depth, score, flag, best move)
         #       Use chess.polyglot.zobrist_hash(board) as key
         # TODO: Add killer moves (2 per ply) and history table for move ordering
@@ -65,6 +63,7 @@ class MinimaxAgent(Agent):
     # Only kept as reference: compare node count with alpha-beta in the report
     # Recursively simulates future moves to evaluate board positions
     def minimax(self, board : Board , depth : int, maximizing_player : bool):
+        self.nodes += 1
 
         # If depth = empty or the game is over: give evaluation back
         if depth == 0 or board.is_game_over():
@@ -102,10 +101,11 @@ class MinimaxAgent(Agent):
     # --- Alpha-beta pruning version ---
     # ----------------------------------
 
-    # TODO: Replace by negamax alpha-beta (see TODOs at the top)
     # TODO: Probe the transposition table at the start, store the result at the end
-    # TODO: Later: principal variation search, null-move pruning, late move reductions
+    # TODO: Later: late move reductions, extensions (check, singular) (lecture 8)
     def alphabeta(self, board : Board, depth : int, alpha : float, beta : float, maximizing_player : bool):
+        self.nodes += 1 # Nodes expanded
+
         # If depth = empty or the game is over: give evaluation back
         # TODO: At depth 0 call self.quiescence() instead of the utility (horizon effect)
         if depth == 0 or board.is_game_over():
@@ -178,63 +178,46 @@ class MinimaxAgent(Agent):
     def calculate_move(self, board: Board, constraints: dict[str, int] = {}) -> Move:
         start_time = time.time()
 
+        self.nodes = 0 # Reset at the start of every move
+
+        # TODO: No random fallback: use the first move of the ordered list (reproducible tests),
+        #       with iterative deepening: the best move of the last finished depth
         # TODO: Return None ("bestmove 0000") when there are no legal moves, now random.choice crashes
         best_move = random.choice(list(board.legal_moves))
         maximizing_player = True if board.turn == chess.WHITE else False
         alpha = -float('inf')
         beta = float('inf')
-        max_depth = self.depth  # store original search depth
+        max_depth = constraints.get('depth', self.depth) # depth from the GUI, otherwise our default
 
         ordered_moves = self.order_moves(board)
 
         if maximizing_player:
             best_value = -float('inf')
-            for move in ordered_moves:
-                # Stop if out of time
-                if time.time() - start_time > self.time_limit_move:
-                    break
-
-                board.push(move)
-                value = self.alphabeta(board, self.depth - 1, alpha, beta, False)
-                board.pop()
-
-                # Update best move
-                if value > best_value:
-                    best_value = value
-                    best_move = move
-
-                    # Convert score to centipawns
-                    centipawns = int(best_value * 100)
-                    print(f"info depth {max_depth} score cp {centipawns} pv {best_move.uci()}")
-
-                # Update alpha
-                alpha = max(alpha, best_value)
-                if alpha >= beta:
-                    break  # alpha-beta pruning
-
-            return best_move
-
         else:
-            worst_value = float('inf')
-            for move in ordered_moves:
-                # Stop if out of time
-                if time.time() - start_time > self.time_limit_move:
-                    break
+            best_value = float('inf')
 
-                board.push(move)
-                value = self.alphabeta(board, self.depth - 1, alpha, beta, True)
-                board.pop()
+        for move in ordered_moves:
+            # TODO: Temporary time check, only between root moves (one root move can still take much longer)
+            #       Replace by iterative deepening + time check inside alphabeta every 1000 nodes
+            if time.time() - start_time > self.time_limit_move:
+                break
 
-                if value < worst_value:
-                    worst_value = value
-                    best_move = move
+            # Play move
+            board.push(move)
+            # Evaluate recursively
+            value = self.alphabeta(board, max_depth - 1, alpha, beta, not maximizing_player) # Opponent's turn after our move
+            # Reverse move
+            board.pop()
 
-                    # TODO: Wrong sign for black, UCI expects the score from the side to move
-                    centipawns = int(worst_value * 100)
-                    print(f"info depth {max_depth} score cp {centipawns} pv {best_move.uci()}")
+            # Check if current value is the best move
+            if maximizing_player and value > best_value or not maximizing_player and value < best_value:
+                best_value = value
+                best_move = move
+                print(f"info depth {max_depth} score cp {int(best_value * 100)} pv {best_move.uci()}")
 
-                # Update beta
-                beta = min(beta, worst_value)
-                if beta <= alpha:
-                    break  # alpha-beta pruning
-            return best_move
+            # Update the bound of the side to move
+            if maximizing_player:
+                alpha = max(alpha, best_value)
+            else:
+                beta = min(beta, best_value)
+        return best_move
