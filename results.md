@@ -15,7 +15,7 @@ The report graphs and tables are made from this file.
 
 | Date | Commit | Technique | bench (nodes / time, depth 3) | tactics | match |
 |---|---|---|---|---|---|
-| 20/11 | (hash after commit) | One alpha-beta copy at the root + node counter | 22 046 nodes / 2.62 s, same moves as baseline | - | - |
+| 20/11 | abe95f7 | One alpha-beta copy at the root + node counter | 22 046 nodes / 2.62 s, same moves as baseline | - | - |
 
 ## Evaluation
 
