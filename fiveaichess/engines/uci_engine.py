@@ -64,6 +64,13 @@ class UCIEngine():
                     for move in moves:
                         board.push_uci(move)
 
+                case ['position', 'fen', *fen_and_moves]:
+                    # A FEN has 6 fields, optionally followed by 'moves' and the played moves
+                    board = chess.Board(' '.join(fen_and_moves[:6]))
+                    if len(fen_and_moves) > 6 and fen_and_moves[6] == 'moves':
+                        for move in fen_and_moves[7:]:
+                            board.push_uci(move)
+
                 case ['go', *args]:
                     it = iter(args)
                     known_keys = {'wtime', 'btime', 'winc', 'binc', 'movestogo', 'depth', 'nodes', 'mate', 'movetime'}
