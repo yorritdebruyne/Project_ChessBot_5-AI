@@ -1,16 +1,17 @@
+from typing import Any
+
 import chess
 
 from fiveaichess.agents.agent import Agent
 
 
 class UCIEngine():
+    option_definitions: dict[str, dict[str, Any]] = {}
 
-    option_definitions: dict[str, dict[str, any]] = {}
-    
     def __init__(self, agent: Agent) -> None:
         self.agent = agent
         self.options = {}
-        
+
     def run(self):
         board = chess.Board()
 
@@ -57,27 +58,17 @@ class UCIEngine():
 
                 case ['position', 'startpos']:
                     board = chess.Board()
-                
+
                 case ['position', 'startpos', 'moves', *moves]:
                     board = chess.Board()
                     for move in moves:
                         board.push_uci(move)
 
-                case ['position', 'fen', *args] if 'moves' in args:
-                    index = args.index('moves')
-                    board = chess.Board(' '.join(args[:index]))
-                    for move in args[index + 1:]:
-                        board.push_uci(move)
-
-                case ['position', 'fen', *fen]:
-                    board = chess.Board(' '.join(fen))
-
                 case ['go', *args]:
                     it = iter(args)
                     known_keys = {'wtime', 'btime', 'winc', 'binc', 'movestogo', 'depth', 'nodes', 'mate', 'movetime'}
                     constraints = {key: int(next(it)) for key in it if key in known_keys}
-                    move = self.agent.calculate_move(board, constraints)
-                    print(f'bestmove {move}')
+                    print(f'bestmove {self.agent.calculate_move(board, constraints)}')
 
                 case ['quit']:
                     break
@@ -100,7 +91,7 @@ class UCIEngine():
                     pass
                 case 'combo':
                     o_vars = definition['vars']
-                    for o_var in o_vars.spit(' '):
+                    for o_var in o_vars.split(' '):
                         declaration += f" var {o_var}"
                 case 'button':
                     pass
