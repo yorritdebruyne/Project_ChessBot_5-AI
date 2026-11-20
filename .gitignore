@@ -197,5 +197,4 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
-fiveaichess.bat
-fiveaichess.bat
+aichess.bat
