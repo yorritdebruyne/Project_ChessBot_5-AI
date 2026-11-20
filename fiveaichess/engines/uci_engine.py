@@ -63,11 +63,21 @@ class UCIEngine():
                     for move in moves:
                         board.push_uci(move)
 
+                case ['position', 'fen', *args] if 'moves' in args:
+                    index = args.index('moves')
+                    board = chess.Board(' '.join(args[:index]))
+                    for move in args[index + 1:]:
+                        board.push_uci(move)
+
+                case ['position', 'fen', *fen]:
+                    board = chess.Board(' '.join(fen))
+
                 case ['go', *args]:
                     it = iter(args)
                     known_keys = {'wtime', 'btime', 'winc', 'binc', 'movestogo', 'depth', 'nodes', 'mate', 'movetime'}
                     constraints = {key: int(next(it)) for key in it if key in known_keys}
-                    print(f'bestmove {self.agent.calculate_move(board, constraints)}')
+                    move = self.agent.calculate_move(board, constraints)
+                    print(f'bestmove {move}')
 
                 case ['quit']:
                     break
