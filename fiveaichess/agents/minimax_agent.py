@@ -55,6 +55,7 @@ class MinimaxAgent(Agent):
     def order_moves(self, board: Board):
         captures = []
         promotions = []
+        checks = []
         others = []
 
         for move in board.legal_moves:
@@ -63,12 +64,17 @@ class MinimaxAgent(Agent):
             elif move.promotion:
                 promotions.append(move)
             else:
-                others.append(move)
+                board.push(move)
+                if board.is_check():
+                    checks.append(move)
+                else:
+                    others.append(move)
+                board.pop()
 
         captures.sort(key=lambda move: self.capture_score(board, move), reverse=True)
         promotions.sort(key=lambda move: self.piece_values[move.promotion], reverse=True)
 
-        return captures + promotions + others
+        return captures + promotions + checks + others
 
     def capture_score(self, board: Board, move: Move):
         captured_piece = board.piece_at(move.to_square)
@@ -146,10 +152,20 @@ class MinimaxAgent(Agent):
         if self.nodes % 1024 == 0 and time.perf_counter() >= self.search_deadline:
             raise SearchTimeout()
 
-        # If depth = empty or the game is over: give evaluation back
-        # TODO: At depth 0 call self.quiescence() instead of the utility (horizon effect)
-        if depth == 0 or board.is_game_over():
-            return self.utility.board_value(board)
+        if board.is_checkmate():
+            if board.turn == chess.WHITE:
+                return -100000
+            return 100000
+
+        if (
+            board.is_stalemate()
+            or board.is_insufficient_material()
+            or board.is_seventyfive_moves()
+        ):
+            return 0
+
+        if depth == 0:
+            return self.quiescence(board, alpha, beta)
 
         # Use sorted order
         ordered_moves = self.order_moves(board)
@@ -196,11 +212,77 @@ class MinimaxAgent(Agent):
     # ---------------------------
 
     # TODO: Implement quiescence search
-    #       - Stand pat: evaluate the position, return if >= beta
     #       - Only search captures (and promotions), ordered by MVV-LVA
     #       - Stops the search from ending in the middle of a capture sequence
-    def quiescence(self, board : Board, alpha : float, beta : float):
-        pass
+    def quiescence(self, board: Board, alpha: float, beta: float):
+        self.nodes += 1
+
+        if self.nodes % 1024 == 0 and time.perf_counter() >= self.search_deadline:
+            raise SearchTimeout()
+
+        if board.is_checkmate():
+            if board.turn == chess.WHITE:
+                return -100000
+            return 100000
+
+        if board.is_stalemate() or board.is_insufficient_material():
+            return 0
+
+        stand_pat = self.utility.board_value(board)
+
+        if board.turn == chess.WHITE:
+            if stand_pat >= beta:
+                return stand_pat
+            alpha = max(alpha, stand_pat)
+        else:
+            if stand_pat <= alpha:
+                return stand_pat
+            beta = min(beta, stand_pat)
+
+        tactical_moves = [
+            move for move in board.legal_moves
+            if board.is_capture(move) or move.promotion
+        ]
+
+        tactical_moves.sort(
+            key=lambda move: self.capture_score(board, move),
+            reverse=True,
+        )
+
+        if board.turn == chess.WHITE:
+            best_value = stand_pat
+
+            for move in tactical_moves:
+                board.push(move)
+                try:
+                    value = self.quiescence(board, alpha, beta)
+                finally:
+                    board.pop()
+
+                best_value = max(best_value, value)
+                alpha = max(alpha, best_value)
+
+                if alpha >= beta:
+                    break
+
+            return best_value
+
+        worst_value = stand_pat
+
+        for move in tactical_moves:
+            board.push(move)
+            try:
+                value = self.quiescence(board, alpha, beta)
+            finally:
+                board.pop()
+
+            worst_value = min(worst_value, value)
+            beta = min(beta, worst_value)
+
+            if beta <= alpha:
+                break
+
+        return worst_value
 
     # ----------------------
     # --- Move Selection ---
