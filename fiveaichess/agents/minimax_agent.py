@@ -1,5 +1,4 @@
 import time
-import random
 
 import chess
 
@@ -7,6 +6,10 @@ from chess import Board, Move
 
 from fiveaichess.agents.agent import Agent
 from fiveaichess.utilities.utility import Utility
+
+
+class SearchTimeout(Exception):
+    pass
 
 """
 Minimax Agent with alpha-beta pruning
@@ -36,6 +39,14 @@ class MinimaxAgent(Agent):
         super().__init__(utility, time_limit_move)
         # Save in class
         self.depth = depth
+        self.piece_values= {
+                chess.PAWN: 100,
+                chess.KNIGHT: 320,
+                chess.BISHOP: 330,
+                chess.ROOK: 500,
+                chess.QUEEN: 900,
+                chess.KING: 20000
+            }
         # TODO: Add transposition table (dict: zobrist hash -> depth, score, flag, best move)
         #       Use chess.polyglot.zobrist_hash(board) as key
         # TODO: Add killer moves (2 per ply) and history table for move ordering
@@ -43,16 +54,42 @@ class MinimaxAgent(Agent):
     # Sort moves in order to make alpha-beta pruning faster
     def order_moves(self, board: Board):
         captures = []
+        promotions = []
         others = []
 
         for move in board.legal_moves:
             if board.is_capture(move):
                 captures.append(move)
+            elif move.promotion:
+                promotions.append(move)
             else:
                 others.append(move)
-        # Sort captures before others
-        # TODO: Better ordering: TT move > captures sorted by MVV-LVA > promotions > killer moves > history
-        return captures + others
+
+        captures.sort(key=lambda move: self.capture_score(board, move), reverse=True)
+        promotions.sort(key=lambda move: self.piece_values[move.promotion], reverse=True)
+
+        return captures + promotions + others
+
+    def capture_score(self, board: Board, move: Move):
+        captured_piece = board.piece_at(move.to_square)
+
+        if board.is_en_passant(move):
+            captured_piece = chess.Piece(chess.PAWN, not board.turn)
+
+        if captured_piece is None:
+            return 0
+
+        attacking_piece = board.piece_at(move.from_square)
+
+        captured_value = self.piece_values[captured_piece.piece_type]
+        attacking_value = (self.piece_values[attacking_piece.piece_type] if attacking_piece else 0)
+
+        score = captured_value *10 - attacking_value
+
+        if move.promotion:
+            score += self.piece_values[move.promotion]
+
+        return score
 
 
 
@@ -105,6 +142,9 @@ class MinimaxAgent(Agent):
     # TODO: Later: late move reductions, extensions (check, singular) (lecture 8)
     def alphabeta(self, board : Board, depth : int, alpha : float, beta : float, maximizing_player : bool):
         self.nodes += 1 # Nodes expanded
+
+        if self.nodes % 1024 == 0 and time.perf_counter() >= self.search_deadline:
+            raise SearchTimeout()
 
         # If depth = empty or the game is over: give evaluation back
         # TODO: At depth 0 call self.quiescence() instead of the utility (horizon effect)
@@ -175,21 +215,42 @@ class MinimaxAgent(Agent):
     # TODO: Print "info depth .. score cp .. nodes .. time .. pv .." per iteration,
     #       score from the side to move's view (not white's) and "score mate n" for mates
     # TODO: Later: opening book (chess.polyglot) and endgame tablebases (chess.syzygy)
-    def calculate_move(self, board: Board, constraints: dict[str, int] = {}) -> Move:
-        start_time = time.time()
+    def calculate_move(self, board: Board, constraints: dict[str, int] = {}) -> Move | None:
+        if 'movetime' in constraints:
+            search_time = constraints['movetime'] / 1000
+        else:
+            own_time_key = 'wtime' if board.turn == chess.WHITE else 'btime'
+            own_increment_key = 'winc' if board.turn == chess.WHITE else 'binc'
+            own_time = constraints.get(own_time_key)
+            own_increment = constraints.get(own_increment_key, 0)
+
+            if own_time is not None:
+                moves_to_go = constraints.get('movestogo', 40)
+                moves_to_go = moves_to_go if moves_to_go > 0 else 40
+                search_time = min(
+                    self.time_limit_move,
+                    (own_time / 1000) / moves_to_go + (own_increment / 1000) * 0.8,
+                )
+            else:
+                search_time = self.time_limit_move
+
+        search_time = max(0.05, search_time)
+        self.search_deadline = time.perf_counter() + search_time
 
         self.nodes = 0 # Reset at the start of every move
 
-        # TODO: No random fallback: use the first move of the ordered list (reproducible tests),
-        #       with iterative deepening: the best move of the last finished depth
-        # TODO: Return None ("bestmove 0000") when there are no legal moves, now random.choice crashes
-        best_move = random.choice(list(board.legal_moves))
+        search_board = board.copy(stack=True)
         maximizing_player = True if board.turn == chess.WHITE else False
         alpha = -float('inf')
         beta = float('inf')
         max_depth = constraints.get('depth', self.depth) # depth from the GUI, otherwise our default
 
-        ordered_moves = self.order_moves(board)
+        ordered_moves = self.order_moves(search_board)
+
+        if not ordered_moves:
+            return None  # No legal moves available
+
+        best_move = ordered_moves[0]
 
         if maximizing_player:
             best_value = -float('inf')
@@ -197,23 +258,26 @@ class MinimaxAgent(Agent):
             best_value = float('inf')
 
         for move in ordered_moves:
-            # TODO: Temporary time check, only between root moves (one root move can still take much longer)
-            #       Replace by iterative deepening + time check inside alphabeta every 1000 nodes
-            if time.time() - start_time > self.time_limit_move:
-                break
-
             # Play move
-            board.push(move)
-            # Evaluate recursively
-            value = self.alphabeta(board, max_depth - 1, alpha, beta, not maximizing_player) # Opponent's turn after our move
-            # Reverse move
-            board.pop()
+            search_board.push(move)
+            try:
+                # Evaluate recursively
+                value = self.alphabeta(search_board, max_depth - 1, alpha, beta, not maximizing_player) # Opponent's turn after our move
+            except SearchTimeout:
+                search_board.pop()
+                break
+            else:
+                # Reverse move
+                search_board.pop()
 
             # Check if current value is the best move
             if maximizing_player and value > best_value or not maximizing_player and value < best_value:
                 best_value = value
                 best_move = move
-                print(f"info depth {max_depth} score cp {int(best_value * 100)} pv {best_move.uci()}")
+                print(
+                    f"info depth {max_depth} score cp {int(best_value * 100)} pv {best_move.uci()}",
+                    flush=True,
+                )
 
             # Update the bound of the side to move
             if maximizing_player:

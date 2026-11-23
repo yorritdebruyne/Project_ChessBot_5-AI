@@ -72,10 +72,17 @@ class UCIEngine():
                             board.push_uci(move)
 
                 case ['go', *args]:
-                    it = iter(args)
                     known_keys = {'wtime', 'btime', 'winc', 'binc', 'movestogo', 'depth', 'nodes', 'mate', 'movetime'}
-                    constraints = {key: int(next(it)) for key in it if key in known_keys}
-                    print(f'bestmove {self.agent.calculate_move(board, constraints)}')
+                    constraints = {}
+                    for index in range(0, len(args)-1,2):
+                        key = args[index]
+                        if key in known_keys:
+                            constraints[key] = int(args[index+1])
+                    move = self.agent.calculate_move(board, constraints)
+                    if move is None:
+                        print("bestmove 0000", flush=True)
+                    else:
+                        print(f"bestmove {move}", flush=True)
 
                 case ['quit']:
                     break
