@@ -203,5 +203,8 @@ aichess.bat
 results/*.pgn
 Instructions_Project.*
 
+# datasets: large files stay local
 data/*.npz
+data/*.zst
+data/*.jsonl
 checkpoints/
