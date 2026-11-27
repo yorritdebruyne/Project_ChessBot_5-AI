@@ -22,7 +22,11 @@ def plane_index(piece: chess.Piece) -> int:
     # Plane 0-5 = white pawn, knight, bishop, rook, queen, king
     # Plane 6-11 = the same for black
     # TODO: piece.piece_type is 1 (PAWN) .. 6 (KING), piece.color is chess.WHITE (True) or chess.BLACK (False)
-    raise NotImplementedError
+    if piece.color == chess.WHITE:
+        return piece.piece_type - 1
+    else:
+        return piece.piece_type + 5
+
 
 
 def encode(board: Board) -> np.ndarray:
@@ -31,6 +35,8 @@ def encode(board: Board) -> np.ndarray:
 
     # TODO: Loop over board.piece_map().items() -> (square, piece) and set the right feature to 1
 
+    for square, piece in board.piece_map().items():
+        features[plane_index(piece) * 64 + square] = 1
     return features
 
 
