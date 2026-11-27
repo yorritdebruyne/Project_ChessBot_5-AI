@@ -1,0 +1,124 @@
+import math
+import torch
+
+from nn.dataset import PositionsDataset
+from nn.model import ValueNetwork
+from nn.learners import ValueLearner
+from nn.utilities import plot_training_process
+
+
+"""
+train_value
+-----------
+Trains the value network, same structure as run_classification.py in Lab 2.
+First version: labels = game results of Kasparov.pgn. Later only the dataset file changes
+(Stockfish labels from Phase 3a).
+
+Run from the project root: python -m nn.train_value
+"""
+
+## PARAMETERS
+
+random_seed = 1
+
+npz_path = "data/value_kasparov.npz"
+weights_path = "nn/value_weights.npz"
+
+batch_size_train = 512
+batch_size_test = 4096
+
+epochs = 20
+
+learning_rate = 0.001
+weight_decay = 0  # model selection: compare 0 vs 1e-4
+
+## INITIALISATION
+
+# manually set seeds for random number generators --> ensures reproducibility of results
+
+torch.manual_seed(random_seed)
+
+## HARDWARE ACCELERATION
+
+# The network is small: CPU is fast enough, and the engine also runs it on the CPU
+device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+
+print("device:", device)
+print()
+
+## DATA
+
+train_dataset = PositionsDataset(npz_path, "train")
+valid_dataset = PositionsDataset(npz_path, "valid")
+test_dataset = PositionsDataset(npz_path, "test")
+
+print("train data shape:", tuple(train_dataset.data.shape))
+print("valid data shape:", tuple(valid_dataset.data.shape))
+print("test data shape:", tuple(test_dataset.data.shape))
+print()
+
+# Already split by game in build_dataset.py, so no random_split here (that would split per position)
+train_dataloader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batch_size_train, shuffle=True)
+valid_dataloader = torch.utils.data.DataLoader(dataset=valid_dataset, batch_size=batch_size_test, shuffle=False)
+test_dataloader = torch.utils.data.DataLoader(dataset=test_dataset, batch_size=batch_size_test, shuffle=False)
+
+## MODEL DEFINITION
+
+# TODO: create an instance of the value network
+model = None
+
+# TODO: create the criterion: torch.nn.BCEWithLogitsLoss()
+#       (targets 0 / 0.5 / 1 + sigmoid = logistic regression, L4; the sigmoid sits inside the loss)
+criterion = None
+
+# TODO: create an Adam optimizer with learning_rate and weight_decay
+optimizer = None
+
+print("neural network architecture:")
+print()
+print(model)
+print()
+
+learner = ValueLearner(model, criterion, optimizer)
+
+## BASELINE
+
+# Loss of always predicting the mean label of the training set: the network has to beat this clearly,
+# otherwise it only learned the label distribution
+mean_target = train_dataset.targets.mean().item()
+# TODO: baseline_loss = criterion(constant logit, test targets) with logit = math.log(p / (1 - p)), p = mean_target
+#       (torch.full_like(test_dataset.targets, logit) gives the constant prediction for every position)
+baseline_loss = None
+
+print(f"baseline (predict mean {mean_target:.3f}):\ttest loss = {baseline_loss:.4f}")
+print()
+
+## TRAIN MODEL
+
+train_losses, valid_losses, valid_accuracies = learner.train(train_dataloader, valid_dataloader, epochs, device)
+
+min_valid_loss = min(valid_losses)
+min_valid_loss_index = valid_losses.index(min_valid_loss)
+min_valid_accuracy = valid_accuracies[min_valid_loss_index]
+
+print(f"train results:\tvalid loss = {min_valid_loss:.4f}\tvalid accuracy = {100 * min_valid_accuracy:.2f}% (epoch {min_valid_loss_index + 1})")
+print()
+
+# plot the training loss versus the validation loss (saved for the report)
+plot_training_process(train_losses, valid_losses, "results/value_training_process.png")
+
+## TESTING
+
+# load the best version of the model parameters
+learner.load("leader")
+
+test_loss, test_accuracy = learner.test(test_dataloader, device)
+
+print(f"test results:\ttest loss = {test_loss:.4f}\ttest accuracy = {100 * test_accuracy:.2f}%")
+print()
+
+## EXPORT
+
+# numpy weights for nn_utility.py (Phase 3c)
+learner.export_weights(weights_path)
+print("saved", weights_path)

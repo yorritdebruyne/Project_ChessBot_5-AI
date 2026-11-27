@@ -202,3 +202,6 @@ aichess.bat
 # md files
 results/*.pgn
 Instructions_Project.*
+
+data/*.npz
+checkpoints/
