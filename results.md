@@ -16,6 +16,7 @@ The report graphs and tables are made from this file.
 | Date | Commit | Technique | bench (nodes / time, depth 3) | tactics | match |
 |---|---|---|---|---|---|
 | 20/11 | abe95f7 | One alpha-beta copy at the root + node counter | 22 046 nodes / 2.62 s, same moves as baseline | - | - |
+| 27/11 | 75d8495 | Maarten: quiescence, terminal states, time management, move ordering | 72 811 nodes / 9.82 s (incl. quiescence nodes, not comparable to 22 046) | 32/50 (+5) | - |
 
 ## Evaluation
 
