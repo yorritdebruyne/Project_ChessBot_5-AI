@@ -1,5 +1,7 @@
 python-chess
 
+zstandard
+
 numpy
 
 torch

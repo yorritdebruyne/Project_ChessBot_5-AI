@@ -11,8 +11,8 @@ from nn.utilities import plot_training_process
 train_value
 -----------
 Trains the value network, same structure as run_classification.py in Lab 2.
-First version: labels = game results of Kasparov.pgn. Later only the dataset file changes
-(Stockfish evaluations from the Lichess sample), so both results can be compared (noisy vs. clean labels, L4).
+Data: the Lichess sample (Stockfish evaluations), shards written by build_dataset_lichess.py.
+Labels = score for the side to move between 0 and 1 (see dataset.py).
 
 Run from the project root: python -m nn.train_value
 """
@@ -21,9 +21,8 @@ Run from the project root: python -m nn.train_value
 
 random_seed = 1
 
-npz_path = "data/value_kasparov.npz"
-# TODO (Lichess set): npz_path = "data/value_lichess.npz", and first adapt dataset.py for memory (see the TODOs there)
-#       More data -> fewer epochs needed and a bigger batch size is fine (e.g. epochs = 5, batch_size_train = 1024)
+shards_dir = "data/shards"
+# More data than Kasparov -> fewer epochs needed and a bigger batch size is fine (e.g. epochs = 5, batch_size_train = 1024)
 weights_path = "nn/value_weights.npz"
 
 batch_size_train = 512
@@ -36,7 +35,7 @@ weight_decay = 0  # model selection: compare 0 vs 1e-4
 
 ## INITIALISATION
 
-# manually set seeds for random number generators --> ensures reproducibility of results
+# Manually set seeds for random number generators -> ensures reproducibility of results
 
 torch.manual_seed(random_seed)
 
@@ -50,16 +49,16 @@ print()
 
 ## DATA
 
-train_dataset = PositionsDataset(npz_path, "train")
-valid_dataset = PositionsDataset(npz_path, "valid")
-test_dataset = PositionsDataset(npz_path, "test")
+train_dataset = PositionsDataset(shards_dir, "train")
+valid_dataset = PositionsDataset(shards_dir, "val")
+test_dataset = PositionsDataset(shards_dir, "test")
 
-print("train data shape:", tuple(train_dataset.data.shape))
-print("valid data shape:", tuple(valid_dataset.data.shape))
-print("test data shape:", tuple(test_dataset.data.shape))
+print("train positions:", len(train_dataset))
+print("valid positions:", len(valid_dataset))
+print("test positions:", len(test_dataset))
 print()
 
-# Already split by game in build_dataset.py, so no random_split here (that would split per position)
+# Already split in build_dataset_lichess.py (fixed split via a hash of the FEN), so no random_split here
 train_dataloader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batch_size_train, shuffle=True)
 valid_dataloader = torch.utils.data.DataLoader(dataset=valid_dataset, batch_size=batch_size_test, shuffle=False)
 test_dataloader = torch.utils.data.DataLoader(dataset=test_dataset, batch_size=batch_size_test, shuffle=False)
@@ -70,7 +69,7 @@ test_dataloader = torch.utils.data.DataLoader(dataset=test_dataset, batch_size=b
 model = None
 
 # TODO: create the criterion: torch.nn.BCEWithLogitsLoss()
-#       (targets 0 / 0.5 / 1 + sigmoid = logistic regression, L4; the sigmoid sits inside the loss)
+#       (targets between 0 and 1 + sigmoid = logistic regression, L4; the sigmoid sits inside the loss)
 criterion = None
 
 # TODO: create an Adam optimizer with learning_rate and weight_decay

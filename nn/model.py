@@ -7,7 +7,8 @@ from fiveaichess.utilities.encoding import NUM_FEATURES
 model
 -----
 The networks, same structure as models.py in Lab 2.
-ValueNetwork: 768 -> 128 -> 32 -> 1, the logit of the probability that white wins.
+ValueNetwork: 768 -> 128 -> 32 -> 1, the logit of the score for the side to move
+(between 0 and 1 after the sigmoid, the engine flips it to white's view).
 """
 
 

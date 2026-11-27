@@ -8,13 +8,17 @@ import chess
 import numpy as np
 import zstandard as zstd
 
-from encoding import CLIP, MATE_CP, pack
+from fiveaichess.utilities.encoding import CLIP, MATE_CP, pack
 
-"""Zet lichess_db_eval.jsonl.zst om naar shards (.npz).
+"""
+build_dataset_lichess
+---------------------
+Converts lichess_db_eval.jsonl.zst into shards (.npz) for the value network (runs once, offline).
+The file is read as a stream, so the 20 GB download is never unpacked as a whole.
 
-Gebruik:
-    python scripts/build_dataset.py --src lichess_db_eval.jsonl.zst --out data/shards --limit 100000
-    python scripts/build_dataset.py --src lichess_db_eval.jsonl.zst --out data/shards --max-positions 20000000
+Usage (from the project root):
+    python -m nn.build_dataset_lichess --src lichess_db_eval.jsonl.zst --out data/shards --limit 100000
+    python -m nn.build_dataset_lichess --src lichess_db_eval.jsonl.zst --out data/shards --max-positions 20000000
 """
 
 SPLITS = ("train", "val", "test")
@@ -31,7 +35,7 @@ def split_of(fen: str) -> str:
 
 
 def best_score(evaluations: list[dict]) -> int | None:
-    """Evaluatie met de hoogste diepte, eerste variant. Geeft centipawns (vanuit wit) of None."""
+    """Evaluation with the highest depth, first variation. Returns centipawns (from white) or None."""
     evaluation = max(evaluations, key=lambda item: item.get("depth", 0))
     principal_variation = evaluation["pvs"][0]
     if "cp" in principal_variation:
@@ -82,12 +86,12 @@ def main() -> None:
     parser.add_argument("--src", required=True)
     parser.add_argument("--out", default="data/shards")
     parser.add_argument("--shard-size", type=int, default=1_000_000)
-    parser.add_argument("--limit", type=int, default=None, help="max aantal regels lezen (test)")
+    parser.add_argument("--limit", type=int, default=None, help="max number of lines to read (test)")
     parser.add_argument(
         "--max-positions",
         type=int,
         default=None,
-        help="stop na zoveel geldige posities",
+        help="stop after this many valid positions",
     )
     args = parser.parse_args()
 
@@ -126,8 +130,8 @@ def main() -> None:
 
             if line_number % 1_000_000 == 0:
                 print(
-                    f"gelezen {line_number:,} | bewaard {kept_positions:,} "
-                    f"| overgeslagen {skipped_lines:,}",
+                    f"read {line_number:,} | kept {kept_positions:,} "
+                    f"| skipped {skipped_lines:,}",
                     flush=True,
                 )
 
@@ -136,7 +140,7 @@ def main() -> None:
         split: (writer.n_shards[split], writer.n_positions[split])
         for split in SPLITS
     }
-    print("klaar:", summary)
+    print("done:", summary)
 
 
 if __name__ == "__main__":

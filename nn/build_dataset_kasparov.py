@@ -1,7 +1,7 @@
 import chess.pgn
 import numpy as np
 
-from fiveaichess.utilities.encoding import encode
+from fiveaichess.utilities.encoding import pack
 
 
 """
@@ -39,7 +39,8 @@ def positions_from_game(game: chess.pgn.Game) -> list:
     board = game.board()
 
     # TODO: Loop over game.mainline_moves(), push each move on the board
-    #       and append encode(board) once more than skip_plies plies are played
+    #       and append pack(board) once more than skip_plies plies are played
+#       (label then also from the side to move, like the Lichess set)
 
     return positions
 
