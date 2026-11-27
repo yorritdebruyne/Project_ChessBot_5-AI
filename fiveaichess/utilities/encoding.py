@@ -21,7 +21,6 @@ NUM_FEATURES = NUM_PLANES * 64  # 768
 def plane_index(piece: chess.Piece) -> int:
     # Plane 0-5 = white pawn, knight, bishop, rook, queen, king
     # Plane 6-11 = the same for black
-    # TODO: piece.piece_type is 1 (PAWN) .. 6 (KING), piece.color is chess.WHITE (True) or chess.BLACK (False)
     if piece.color == chess.WHITE:
         return piece.piece_type - 1
     else:
@@ -32,8 +31,6 @@ def plane_index(piece: chess.Piece) -> int:
 def encode(board: Board) -> np.ndarray:
     # uint8 instead of float: 4x less memory for the whole dataset, the learner converts to float
     features = np.zeros(NUM_FEATURES, dtype=np.uint8)
-
-    # TODO: Loop over board.piece_map().items() -> (square, piece) and set the right feature to 1
 
     for square, piece in board.piece_map().items():
         features[plane_index(piece) * 64 + square] = 1

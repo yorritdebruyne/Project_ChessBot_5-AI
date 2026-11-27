@@ -31,8 +31,8 @@ random_seed = 1
 def result_to_label(result: str):
     # '1-0' -> 1.0, '1/2-1/2' -> 0.5, '0-1' -> 0.0, anything else ('*') -> None (skip the game)
     # TODO
-    raise NotImplementedError
 
+    results = {}
 
 def positions_from_game(game: chess.pgn.Game) -> list:
     positions = []

@@ -12,7 +12,7 @@ train_value
 -----------
 Trains the value network, same structure as run_classification.py in Lab 2.
 First version: labels = game results of Kasparov.pgn. Later only the dataset file changes
-(Stockfish labels from Phase 3a).
+(Stockfish evaluations from the Lichess sample), so both results can be compared (noisy vs. clean labels, L4).
 
 Run from the project root: python -m nn.train_value
 """
@@ -22,6 +22,8 @@ Run from the project root: python -m nn.train_value
 random_seed = 1
 
 npz_path = "data/value_kasparov.npz"
+# TODO (Lichess set): npz_path = "data/value_lichess.npz", and first adapt dataset.py for memory (see the TODOs there)
+#       More data -> fewer epochs needed and a bigger batch size is fine (e.g. epochs = 5, batch_size_train = 1024)
 weights_path = "nn/value_weights.npz"
 
 batch_size_train = 512
