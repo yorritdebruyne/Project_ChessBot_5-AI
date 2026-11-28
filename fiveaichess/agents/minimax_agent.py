@@ -47,6 +47,7 @@ class MinimaxAgent(Agent):
                 chess.QUEEN: 900,
                 chess.KING: 20000
             }
+        self.iteration_results: list[tuple[int, Move, float, int]] = []
         # TODO: Add transposition table (dict: zobrist hash -> depth, score, flag, best move)
         #       Use chess.polyglot.zobrist_hash(board) as key
         # TODO: Add killer moves (2 per ply) and history table for move ordering
@@ -177,9 +178,11 @@ class MinimaxAgent(Agent):
                 # Play move
                 board.push(move)
                 # Calculate new value
-                value = self.alphabeta(board, depth - 1, alpha, beta, False)
-                # Reverse move
-                board.pop()
+                try:
+                    value = self.alphabeta(board, depth - 1, alpha, beta, False)
+                finally:
+                    # Reverse move even if the search is interrupted by a timeout
+                    board.pop()
                 # Evaluate values until the optimal move is determined
                 best_value = max(value, best_value)
                 # Evaluate if alpha is the highest value
@@ -196,9 +199,11 @@ class MinimaxAgent(Agent):
                 # Play move
                 board.push(move)
                 # Evaluate recursively
-                value = self.alphabeta(board, depth - 1, alpha, beta,True)
-                # Reverse move
-                board.pop()
+                try:
+                    value = self.alphabeta(board, depth - 1, alpha, beta, True)
+                finally:
+                    # Reverse move even if the search is interrupted by a timeout
+                    board.pop()
                 # Evaluate values until the optimal move is determined
                 worst_value = min(value, worst_value)
                 # Evaluate if beta is the lowest value
@@ -320,50 +325,69 @@ class MinimaxAgent(Agent):
         self.search_deadline = time.perf_counter() + search_time
 
         self.nodes = 0 # Reset at the start of every move
+        self.iteration_results.clear() # Reset at the start of every move
 
         search_board = board.copy(stack=True)
         maximizing_player = True if board.turn == chess.WHITE else False
-        alpha = -float('inf')
-        beta = float('inf')
         max_depth = constraints.get('depth', self.depth) # depth from the GUI, otherwise our default
 
         ordered_moves = self.order_moves(search_board)
-
         if not ordered_moves:
             return None  # No legal moves available
 
-        best_move = ordered_moves[0]
+        last_best_move = ordered_moves[0]
 
-        if maximizing_player:
-            best_value = -float('inf')
-        else:
-            best_value = float('inf')
-
-        for move in ordered_moves:
-            # Play move
-            search_board.push(move)
+        for depth in range(1, max_depth + 1):
+            iteration_moves = ordered_moves.copy()
+            if last_best_move in iteration_moves:
+                iteration_moves.remove(last_best_move)
+                iteration_moves.insert(0, last_best_move)
+            
+            iteration_best_move = None
+            iteration_best_value = -float('inf') if maximizing_player else float('inf')
+            alpha = -float('inf')
+            beta = float('inf')
+            nodes_before_iteration = self.nodes
+            iteration_completed = False
+            
             try:
-                # Evaluate recursively
-                value = self.alphabeta(search_board, max_depth - 1, alpha, beta, not maximizing_player) # Opponent's turn after our move
+                for move in iteration_moves:
+                    if time.perf_counter() >= self.search_deadline:
+                        raise SearchTimeout()
+                
+                    search_board.push(move)
+                    try:
+                        value = self.alphabeta(search_board, depth - 1, alpha, beta, not maximizing_player)
+                    finally:
+                        search_board.pop()
+                    
+                    if maximizing_player:
+                        if value > iteration_best_value:
+                            iteration_best_value = value
+                            iteration_best_move = move
+                        alpha = max(alpha, iteration_best_value)
+                    else:
+                        if value < iteration_best_value:
+                            iteration_best_value = value
+                            iteration_best_move = move
+                        beta = min(beta, iteration_best_value)
+
+                iteration_completed = True
+                        
             except SearchTimeout:
-                search_board.pop()
                 break
-            else:
-                # Reverse move
-                search_board.pop()
 
-            # Check if current value is the best move
-            if maximizing_player and value > best_value or not maximizing_player and value < best_value:
-                best_value = value
-                best_move = move
-                print(
-                    f"info depth {max_depth} score cp {int(best_value * 100)} pv {best_move.uci()}",
-                    flush=True,
-                )
+            if not iteration_completed or iteration_best_move is None:
+                break
 
-            # Update the bound of the side to move
-            if maximizing_player:
-                alpha = max(alpha, best_value)
-            else:
-                beta = min(beta, best_value)
-        return best_move
+            last_best_move = iteration_best_move
+            iteration_nodes = self.nodes - nodes_before_iteration
+            self.iteration_results.append((depth, iteration_best_move, iteration_best_value, iteration_nodes))
+            
+            score = iteration_best_value if maximizing_player else -iteration_best_value
+            print(
+            f"info depth {depth} score cp {int(score * 100)} "
+            f"nodes {iteration_nodes} pv {last_best_move.uci()}",
+            )
+        return last_best_move
+        
