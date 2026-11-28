@@ -21,14 +21,14 @@ Run from the project root: python -m nn.train_value
 
 random_seed = 1
 
-shards_dir = "data/shards"
+shards_dir = "data/shards_test"
 # More data than Kasparov -> fewer epochs needed and a bigger batch size is fine (e.g. epochs = 5, batch_size_train = 1024)
 weights_path = "nn/value_weights.npz"
 
 batch_size_train = 512
 batch_size_test = 4096
 
-epochs = 20
+epochs = 3
 
 learning_rate = 0.001
 weight_decay = 0  # model selection: compare 0 vs 1e-4
@@ -65,16 +65,14 @@ test_dataloader = torch.utils.data.DataLoader(dataset=test_dataset, batch_size=b
 
 ## MODEL DEFINITION
 
-# TODO: create an instance of the value network
-model = None
+# Create an instance of the model
+model = ValueNetwork()
 
-# TODO: create the criterion: torch.nn.BCEWithLogitsLoss()
-#       (targets between 0 and 1 + sigmoid = logistic regression, L4; the sigmoid sits inside the loss)
-criterion = None
+# Define the loss function: one output (logit) with a target between 0 and 1 -> binary cross-entropy
+criterion = torch.nn.BCEWithLogitsLoss()
 
-# TODO: create an Adam optimizer with learning_rate and weight_decay
-optimizer = None
-
+# Define our optimizer: Adam needs a much lower learning rate than SGD
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 print("neural network architecture:")
 print()
 print(model)
@@ -87,9 +85,9 @@ learner = ValueLearner(model, criterion, optimizer)
 # Loss of always predicting the mean label of the training set: the network has to beat this clearly,
 # otherwise it only learned the label distribution
 mean_target = train_dataset.targets.mean().item()
-# TODO: baseline_loss = criterion(constant logit, test targets) with logit = math.log(p / (1 - p)), p = mean_target
-#       (torch.full_like(test_dataset.targets, logit) gives the constant prediction for every position)
-baseline_loss = None
+# Logit of the mean label: the same prediction for every position, without looking at the board
+logit = math.log(mean_target / (1 - mean_target))
+baseline_loss = criterion(torch.full_like(test_dataset.targets, logit), test_dataset.targets).item()
 
 print(f"baseline (predict mean {mean_target:.3f}):\ttest loss = {baseline_loss:.4f}")
 print()

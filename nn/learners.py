@@ -61,9 +61,19 @@ class ValueLearner(Learner):
                 data = data.to(device)
                 targets = targets.to(device)
 
-                # TODO: Batch update step, same as in your Lab 2 ClassificationLearner
+                # Zero the gradients of the model parameters
+                self.optimizer.zero_grad()
+                # Calculate the output of the model
+                outputs = self.model(data)
+                # Calculate the loss
+                loss = self.criterion(outputs, targets)
+                # Calculate the gradients wrt. the loss
+                loss.backward()
+                # Update the model parameters based on the gradients
+                self.optimizer.step()
 
-                # TODO: train_loss += loss.item() * len(data)
+                # Weigh by the batch size: the last minibatch is smaller, so a mean over batches would be skewed
+                train_loss += loss.item() * len(data)
 
             train_loss = train_loss / len(train_dataloader.dataset)
 
@@ -108,13 +118,18 @@ class ValueLearner(Learner):
             data = data.to(device)
             targets = targets.to(device)
 
-            # TODO: Forward the data, loss weighed by the batch size (as in Lab 2)
+            # Calculate the output of the model
+            outputs = self.model(data)
+            # Calculate the loss (mean over the minibatch) and weigh it by the minibatch size
+            loss = self.criterion(outputs, targets)
+            eval_loss += loss.item() * len(data)
 
-            # Accuracy only on positions where one side is clearly better: a balanced position has no 'right side' of 0.5
-            # TODO: predicted win probability = torch.sigmoid(x)
-            # TODO: mask = (targets - 0.5).abs() > 0.05   (|cp| > ~80 with the sigmoid label, almost a pawn for one side)
-            # TODO: correct += number of positions in the mask where (probability > 0.5) == (target > 0.5)
-            # TODO: decisive += number of positions in the mask
+            # The output is a logit: the sigmoid gives the predicted score for the side to move
+            predictions = torch.sigmoid(outputs)
+            # Only positions where one side is clearly better (more than ~80 cp), a balanced position has no right side of 0.5
+            mask = (targets - 0.5).abs() > 0.05
+            correct += ((predictions > 0.5) == (targets > 0.5))[mask].sum().item()
+            decisive += mask.sum().item()
 
         # Aggregated over samples, not batches
         eval_loss = eval_loss / len(dataloader.dataset)
