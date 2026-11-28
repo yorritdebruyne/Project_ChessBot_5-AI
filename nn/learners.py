@@ -112,7 +112,7 @@ class ValueLearner(Learner):
 
             # Accuracy only on positions where one side is clearly better: a balanced position has no 'right side' of 0.5
             # TODO: predicted win probability = torch.sigmoid(x)
-            # TODO: mask = (targets - 0.5).abs() > 0.05   (|cp| > 100, more than a pawn for one side)
+            # TODO: mask = (targets - 0.5).abs() > 0.05   (|cp| > ~80 with the sigmoid label, almost a pawn for one side)
             # TODO: correct += number of positions in the mask where (probability > 0.5) == (target > 0.5)
             # TODO: decisive += number of positions in the mask
 

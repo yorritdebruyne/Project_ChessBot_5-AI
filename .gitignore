@@ -208,4 +208,5 @@ data/*.npz
 data/*.zst
 data/*.jsonl
 checkpoints/
-data/shards/
+# shards and shards_test
+data/shards*/
