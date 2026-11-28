@@ -25,8 +25,8 @@ when they are not relevant anymore.
 # TODO: Re-run the symmetry test after every change to the search
 # TODO: Add mate score constant (e.g. MATE = 100000) and return -MATE + ply when checkmated,
 #       so the agent prefers the fastest mate
-# TODO: Return 0 for draws (stalemate, insufficient material, repetition, 50-move rule)
-#       instead of board.is_game_over() + utility (is_game_over() is slow at every node)
+# Draw handling is implemented for stalemate, insufficient material and the
+# 75-move rule. Add repetition and 50-move-rule handling explicitly if needed.
 
 
 class MinimaxAgent(Agent):
@@ -188,7 +188,7 @@ class MinimaxAgent(Agent):
                 # Evaluate if alpha is the highest value
                 alpha = max(alpha, best_value)
                 if alpha >= beta:
-                    # TODO: Store quiet move as killer move + update history
+                    # TODO: Store quiet moves for killer/history move ordering
                     break # Prune: no value in searching any further
             return best_value
 
@@ -216,9 +216,9 @@ class MinimaxAgent(Agent):
     # --- Quiescence search ---
     # ---------------------------
 
-    # TODO: Implement quiescence search
-    #       - Only search captures (and promotions), ordered by MVV-LVA
-    #       - Stops the search from ending in the middle of a capture sequence
+    # Extends the search for captures and promotions to avoid evaluating a
+    # position in the middle of a tactical exchange. Tactical moves are
+    # ordered by the existing MVV-LVA-style capture score.
     def quiescence(self, board: Board, alpha: float, beta: float):
         self.nodes += 1
 
@@ -293,14 +293,12 @@ class MinimaxAgent(Agent):
     # --- Move Selection ---
     # ----------------------
 
-    # Chooses the best current move by evaluating all options with alpha-beta pruning
-    # TODO: Iterative deepening: search depth 1, 2, 3, ... until the time is up,
-    #       start each iteration with the best move of the previous one
-    # TODO: Time management: calculate the time for this move from constraints
-    #       (movetime, or wtime/btime + winc/binc / movestogo), fall back on self.time_limit_move
-    # TODO: Check the time inside the search (e.g. every 1000 nodes), not only at the root
-    # TODO: Print "info depth .. score cp .. nodes .. time .. pv .." per iteration,
-    #       score from the side to move's view (not white's) and "score mate n" for mates
+    # Chooses the best move with iterative deepening and alpha-beta pruning.
+    # Search time comes from movetime, the remaining clock and increment,
+    # or the configured fallback time limit.
+    # Each completed iteration stores its depth, score, node count and principal move.
+    # The search checks its deadline at the root and every 1024 nodes.
+    # TODO: Add UCI time reporting and mate scores ("score mate n").
     # TODO: Later: opening book (chess.polyglot) and endgame tablebases (chess.syzygy)
     def calculate_move(self, board: Board, constraints: dict[str, int] = {}) -> Move | None:
         if 'movetime' in constraints:
