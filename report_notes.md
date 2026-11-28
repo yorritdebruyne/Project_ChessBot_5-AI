@@ -20,3 +20,11 @@ The numbers are in results.md.
 - The best move (first move of Stockfish's variation) is stored too, for the policy network (Phase 4), so no second pass over the 20 GB file is needed.
 - Surprise: Lichess writes castling as "king takes rook" (e1h1), python-chess generates e1g1. Without converting, the policy network would learn other moves than the engine asks about.
 - 11.7% of the positions are mates: label exactly 0 or 1 even with the sigmoid.
+
+## Phase 3b - Value network v1 (28/11)
+
+- Loss: binary cross-entropy (BCEWithLogitsLoss) instead of CrossEntropyLoss: one output (the score for the side to move) with a soft target between 0 and 1 = logistic regression (L4). CrossEntropyLoss comes back for the W/D/L head (3 classes) and the policy network (4096 move classes), like MNIST in Lab 2.
+- The loss can't go to 0 with soft labels: a perfect prediction still has a loss of 0.563 on the test set (entropy of the labels). Comparing with the baseline (always predict the mean, 0.6923) and this floor gives a clearer picture than the loss alone: v1 removes 69% of the reducible loss.
+- Accuracy is only measured on clear positions (|cp| > ~80, 54% of the test set): in a balanced position there's no right side of 0.5. 89.5% on the test set.
+- CPU is enough: the network is small (~100k weights), so a GPU would only speed up half of the work; loading the data (unpacking the bitboards) takes about as long as the training math. One epoch on 2.87M positions takes ~1.2 min on a laptop CPU.
+- Train and validation loss stay close (0.6013 vs 0.6031 after 5 epochs): no overfitting with 2.87M positions and ~100k weights, unlike the Kasparov test (1 700 games).

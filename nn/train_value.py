@@ -21,14 +21,14 @@ Run from the project root: python -m nn.train_value
 
 random_seed = 1
 
-shards_dir = "data/shards_test"
+shards_dir = "data/shards"
 # More data than Kasparov -> fewer epochs needed and a bigger batch size is fine (e.g. epochs = 5, batch_size_train = 1024)
 weights_path = "nn/value_weights.npz"
 
 batch_size_train = 512
 batch_size_test = 4096
 
-epochs = 3
+epochs = 5
 
 learning_rate = 0.001
 weight_decay = 0  # model selection: compare 0 vs 1e-4

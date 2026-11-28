@@ -34,3 +34,5 @@ The report graphs and tables are made from this file.
 
 | Date | Commit | Data | Label | Network | Settings | Baseline loss | Test loss | Test accuracy | Notes |
 |---|---|---|---|---|---|---|---|---|---|
+| 28/11 | b9b0373 | data/shards_test (7 129) | sigmoid(cp/400) | 768-128-32-1 | lr 0.001, batch 512, 3 epochs, wd 0 | 0.6842 | 0.6578 | 58.33% (36 clear positions, not reliable) | pipeline test only |
+| 28/11 | b9b0373 | data/shards (2 868 353) | sigmoid(cp/400) | 768-128-32-1 | lr 0.001, batch 512, 5 epochs, wd 0, CPU ~1.2 min/epoch | 0.6923 | 0.6035 | 89.54% | best epoch 5 (valid 0.6031); still improving; perfect-prediction floor 0.563 -> 69% of the reducible loss removed; plot results/value_training_process.png |
